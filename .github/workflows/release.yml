@@ -15,10 +15,28 @@ jobs:
             label: windows
           - os: ubuntu-22.04
             label: linux
+          - os: ubuntu-latest
+            label: linux-arch
+            container: archlinux:latest
 
     runs-on: ${{ matrix.os }}
+    container: ${{ matrix.container }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Install Arch deps (Arch container only)
+        if: matrix.label == 'linux-arch'
+        run: |
+          pacman -Syu --noconfirm
+          pacman -S --noconfirm --needed \
+            webkit2gtk-4.1 xorg-server-xwayland \
+            base-devel rust curl wget file \
+            libxdo openssl libayatana-appindicator \
+            librsvg pkgconf nodejs npm unzip git sudo
+          curl -fsSL https://bun.sh/install | bash
+          echo "$HOME/.bun/bin" >> $GITHUB_PATH
+          # Allow non-root users; CI runs as root in container by default
+          useradd -m -G wheel builder || true
 
       - name: Install system deps (Linux only)
         if: matrix.label == 'linux'

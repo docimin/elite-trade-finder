@@ -32,6 +32,11 @@ pub fn run() {
         };
         set_if_unset("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
         set_if_unset("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
+        // Inside an AppImage, WebKit's child-process bubblewrap sandbox often
+        // fails to start on Arch-based distros because the bundled bwrap
+        // clashes with system security (AppArmor/user-ns restrictions). The
+        // WebKit child then exits silently, leaving the main process white.
+        set_if_unset("WEBKIT_FORCE_SANDBOX", "0");
         let is_wayland = std::env::var("XDG_SESSION_TYPE")
             .map(|v| v.eq_ignore_ascii_case("wayland"))
             .unwrap_or(false)
