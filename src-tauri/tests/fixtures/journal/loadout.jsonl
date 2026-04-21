@@ -1,0 +1,5 @@
+{"timestamp":"2026-04-20T10:00:00Z","event":"LoadGame","Commander":"TestCMDR","Credits":123456789,"Ship":"type9","ShipID":1}
+{"timestamp":"2026-04-20T10:00:05Z","event":"Loadout","Ship":"type9","ShipID":1,"ShipName":"Mule","ShipIdent":"TR-01","HullValue":80000000,"ModulesValue":200000000,"MaxJumpRange":27.8,"CargoCapacity":520,"Modules":[]}
+{"timestamp":"2026-04-20T10:01:00Z","event":"Location","StarSystem":"Sol","StarPos":[0.0,0.0,0.0],"SystemAllegiance":"Federation","SystemSecurity":"$GAlAXY_MAP_INFO_state_high;","StationName":"Abraham Lincoln","StationType":"Orbis","MarketID":128016384}
+{"timestamp":"2026-04-20T10:02:00Z","event":"FSDJump","StarSystem":"LHS 3006","StarPos":[10.1,-5.2,3.3],"JumpDist":11.8,"FuelUsed":1.2,"FuelLevel":30.5}
+{"timestamp":"2026-04-20T10:03:00Z","event":"Docked","StationName":"Jameson Memorial","StationType":"Orbis","StarSystem":"Shinrarta Dezhra","MarketID":128027552,"LandingPads":{"Small":25,"Medium":15,"Large":6}}

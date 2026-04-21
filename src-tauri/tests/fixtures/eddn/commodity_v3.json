@@ -1,0 +1,40 @@
+{
+  "$schemaRef": "https://eddn.edcd.io/schemas/commodity/3",
+  "header": {
+    "uploaderID": "anonymous",
+    "softwareName": "EDDiscovery",
+    "softwareVersion": "16.0.0",
+    "gatewayTimestamp": "2026-04-20T12:34:56Z"
+  },
+  "message": {
+    "timestamp": "2026-04-20T12:34:50Z",
+    "systemName": "CD-37 6398",
+    "stationName": "Hopper Point",
+    "marketId": 3710000001,
+    "stationType": "Outpost",
+    "horizons": true,
+    "odyssey": true,
+    "commodities": [
+      {
+        "name": "OnionheadGammaStrain",
+        "buyPrice": 3200,
+        "sellPrice": 21500,
+        "meanPrice": 12000,
+        "stock": 450,
+        "stockBracket": 2,
+        "demand": 0,
+        "demandBracket": 0
+      },
+      {
+        "name": "Gold",
+        "buyPrice": 9100,
+        "sellPrice": 9500,
+        "meanPrice": 9300,
+        "stock": 200,
+        "stockBracket": 1,
+        "demand": 0,
+        "demandBracket": 0
+      }
+    ]
+  }
+}

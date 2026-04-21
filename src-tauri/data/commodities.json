@@ -1,0 +1,9 @@
+[
+  {"commodity_id": 128049152, "symbol": "Gold", "display_name": "Gold", "category": "Metals", "is_rare": false},
+  {"commodity_id": 128049205, "symbol": "Tritium", "display_name": "Tritium", "category": "Chemicals", "is_rare": false},
+  {"commodity_id": 128049204, "symbol": "Painite", "display_name": "Painite", "category": "Minerals", "is_rare": false},
+  {"commodity_id": 128672167, "symbol": "OnionheadGammaStrain", "display_name": "Onionhead Gamma Strain", "category": "Narcotics", "is_rare": true, "is_illegal_hint": true},
+  {"commodity_id": 128049226, "symbol": "LowTemperatureDiamond", "display_name": "Low Temperature Diamonds", "category": "Minerals", "is_rare": false},
+  {"commodity_id": 128049214, "symbol": "Platinum", "display_name": "Platinum", "category": "Metals", "is_rare": false},
+  {"commodity_id": 128049150, "symbol": "Silver", "display_name": "Silver", "category": "Metals", "is_rare": false}
+]

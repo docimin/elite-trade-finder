@@ -1,0 +1,11 @@
+{
+  "timestamp": "2026-04-20T10:03:05Z",
+  "event": "Market",
+  "MarketID": 128027552,
+  "StationName": "Jameson Memorial",
+  "StarSystem": "Shinrarta Dezhra",
+  "Items": [
+    { "id": 128049152, "Name": "$gold_name;", "Name_Localised": "Gold", "Category": "$MARKET_category_metals;", "BuyPrice": 9200, "SellPrice": 9500, "MeanPrice": 9300, "StockBracket": 2, "DemandBracket": 1, "Stock": 400, "Demand": 50, "Consumer": false, "Producer": true, "Rare": false },
+    { "id": 128049205, "Name": "$tritium_name;", "Name_Localised": "Tritium", "Category": "$MARKET_category_chemicals;", "BuyPrice": 0, "SellPrice": 52000, "MeanPrice": 45000, "StockBracket": 0, "DemandBracket": 3, "Stock": 0, "Demand": 5000, "Consumer": true, "Producer": false, "Rare": false }
+  ]
+}

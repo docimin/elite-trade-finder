@@ -1,0 +1,50 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #0a0c10;
+  --color-panel: #131820;
+  --color-panel-hi: #1a2029;
+  --color-border: #23293a;
+  --color-text: #d9dbe0;
+  --color-text-dim: #8a8f9a;
+  --color-accent: #ff7b00;
+  --color-accent-hi: #ffa347;
+  --color-good: #4ade80;
+  --color-warn: #fbbf24;
+  --color-bad: #f87171;
+  --color-fresh: #4ade80;
+  --color-stale: #fbbf24;
+  --color-dead: #6b7280;
+  --font-mono: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+  /* Tauri defaults to user-select: none on the WebView. Override so the user
+     can select/copy text in tables, diagnose reports, etc. */
+  user-select: text;
+  -webkit-user-select: text;
+  cursor: auto;
+}
+
+input, textarea {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+button {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
