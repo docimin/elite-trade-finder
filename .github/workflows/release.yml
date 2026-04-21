@@ -39,7 +39,8 @@ jobs:
             xdotool openssl libayatana-appindicator \
             librsvg pkgconf nodejs npm unzip git sudo \
             gtk3 gdk-pixbuf2 cairo pango harfbuzz \
-            glibc patchelf squashfs-tools
+            glibc patchelf squashfs-tools \
+            fuse2 fuse3 appstream libglvnd desktop-file-utils
           curl -fsSL https://bun.sh/install | bash
           echo "$HOME/.bun/bin" >> $GITHUB_PATH
 
@@ -81,7 +82,14 @@ jobs:
 
       - run: bun install
 
-      - run: bun run tauri build
+      - name: Build tauri bundles
+        env:
+          # linuxdeploy + linuxdeploy-plugin-appimage are AppImages themselves.
+          # Inside the Arch CI container we don't have FUSE, so tell them to
+          # self-extract instead of mounting. Harmless on other matrix entries.
+          APPIMAGE_EXTRACT_AND_RUN: 1
+          NO_STRIP: 1
+        run: bun run tauri build
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
