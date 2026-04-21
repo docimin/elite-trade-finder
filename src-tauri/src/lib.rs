@@ -13,15 +13,31 @@ use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    // On Linux, WebKitGTK's default DMA-BUF renderer fails on many stacks
-    // (NVIDIA, certain Wayland/Mesa combos) with "EGL_BAD_PARAMETER", which
-    // leaves the window blank. Setting this env var before WebKit initializes
-    // forces the legacy path and fixes the white-screen bug.
-    // Users can still override by setting the env var themselves before launch.
+    // Linux white-screen workarounds for WebKitGTK. Three layers:
+    //
+    // 1. Disable the DMA-BUF renderer — fixes most NVIDIA + some Mesa stacks
+    //    that hit "EGL_BAD_PARAMETER" on dmabuf buffer negotiation.
+    // 2. Disable GPU compositing as a further fallback for older/broken GL.
+    // 3. On Wayland, force XWayland. KDE Plasma 6 + Mesa + WebKitGTK has
+    //    known brokenness; X11 is the reliable fallback.
+    //
+    // Users can override any of these by exporting the var themselves before
+    // launch (e.g. `GDK_BACKEND=wayland` to try native Wayland anyway).
     #[cfg(target_os = "linux")]
     {
-        if std::env::var_os("WEBKIT_DISABLE_DMABUF_RENDERER").is_none() {
-            std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+        let set_if_unset = |k: &str, v: &str| {
+            if std::env::var_os(k).is_none() {
+                std::env::set_var(k, v);
+            }
+        };
+        set_if_unset("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+        set_if_unset("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
+        let is_wayland = std::env::var("XDG_SESSION_TYPE")
+            .map(|v| v.eq_ignore_ascii_case("wayland"))
+            .unwrap_or(false)
+            || std::env::var_os("WAYLAND_DISPLAY").is_some();
+        if is_wayland {
+            set_if_unset("GDK_BACKEND", "x11");
         }
     }
 
