@@ -85,11 +85,19 @@ jobs:
       - name: Build tauri bundles
         env:
           # linuxdeploy + linuxdeploy-plugin-appimage are AppImages themselves.
-          # Inside the Arch CI container we don't have FUSE, so tell them to
-          # self-extract instead of mounting. Harmless on other matrix entries.
+          # Inside CI containers (no FUSE) tell them to self-extract. Harmless
+          # on the other matrix entries where FUSE is available.
           APPIMAGE_EXTRACT_AND_RUN: 1
           NO_STRIP: 1
-        run: bun run tauri build
+        run: |
+          if [ "${{ matrix.label }}" = "linux-arch" ]; then
+            # Skip AppImage on Arch: linuxdeploy's GTK plugin fails inside the
+            # archlinux:latest container for reasons Tauri hides. .deb/.rpm are
+            # enough — Arch users extract with `bsdtar xf *.rpm` or `ar x *.deb`.
+            bun run tauri build --bundles deb rpm
+          else
+            bun run tauri build
+          fi
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
