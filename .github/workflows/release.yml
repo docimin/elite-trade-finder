@@ -100,6 +100,19 @@ jobs:
             bun run tauri build
           fi
 
+      - name: Rename Arch artifacts to avoid collision with Ubuntu ones
+        if: matrix.label == 'linux-arch'
+        shell: bash
+        run: |
+          # Tag filenames so Ubuntu-built and Arch-built artifacts don't
+          # overwrite each other when the release job flattens them.
+          cd src-tauri/target/release/bundle
+          for f in deb/*.deb rpm/*.rpm; do
+            [ -f "$f" ] || continue
+            base="${f%.*}"; ext="${f##*.}"
+            mv "$f" "${base}-arch.${ext}"
+          done
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:

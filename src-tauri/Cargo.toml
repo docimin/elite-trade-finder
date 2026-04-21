@@ -1,6 +1,6 @@
 [package]
 name = "elite-trade-finder"
-version = "0.1.5"
+version = "0.1.6"
 description = "Real-time Elite Dangerous trade route finder"
 authors = ["Dominic Stilma"]
 license = "MIT"
