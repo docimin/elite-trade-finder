@@ -74,7 +74,9 @@ jobs:
 
   release:
     needs: build
-    if: startsWith(github.ref, 'refs/tags/')
+    # Fire on tag pushes (real releases) and manual dispatch (testing the pipeline).
+    # Skip for routine branch pushes so every commit doesn't create a draft release.
+    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -83,8 +85,19 @@ jobs:
         with:
           path: dist
 
+      - name: Pick a release tag name
+        id: tagname
+        run: |
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            echo "name=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          else
+            # workflow_dispatch has no tag — synthesize one from the short SHA.
+            echo "name=dev-${{ github.run_number }}-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.tagname.outputs.name }}
           files: dist/**/*
           draft: true
           generate_release_notes: true

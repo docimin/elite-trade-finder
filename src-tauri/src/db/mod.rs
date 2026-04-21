@@ -32,9 +32,22 @@ pub async fn connect(url: &str) -> Result<Db> {
             .context("connecting to postgres")?;
         Ok(Db::Postgres(pool))
     } else if url.starts_with("sqlite://") || url.starts_with("sqlite:") {
+        use sqlx::ConnectOptions;
+        use std::str::FromStr;
+        // WAL + NORMAL sync lets readers and writers run concurrently without
+        // blocking each other, and avoids fsync-per-transaction durability
+        // cost. Without this, the journal watcher's frequent writes serialize
+        // the route engine's queries for ~1-2s each.
+        let opts = sqlx::sqlite::SqliteConnectOptions::from_str(url)?
+            .journal_mode(sqlx::sqlite::SqliteJournalMode::Wal)
+            .synchronous(sqlx::sqlite::SqliteSynchronous::Normal)
+            .busy_timeout(std::time::Duration::from_secs(10))
+            .pragma("cache_size", "-50000")
+            .pragma("temp_store", "MEMORY")
+            .disable_statement_logging();
         let pool = sqlx::sqlite::SqlitePoolOptions::new()
             .max_connections(4)
-            .connect(url)
+            .connect_with(opts)
             .await
             .context("connecting to sqlite")?;
         Ok(Db::Sqlite(pool))
