@@ -32,3 +32,4 @@ spansh-galaxy.json.gz
 *.swp
 .DS_Store
 Thumbs.db
+.claude

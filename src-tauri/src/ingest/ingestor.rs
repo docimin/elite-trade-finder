@@ -99,6 +99,19 @@ async fn resolve_commodity_id(db: &Db, symbol: &str) -> Result<i64> {
     }
 }
 
+fn pad_from_station_type(t: &str) -> Option<&'static str> {
+    let t = t.to_lowercase();
+    if t.contains("carrier") || t.contains("starport") || t.contains("asteroid base")
+        || t.contains("mega ship") || t.contains("planetary port")
+    {
+        Some("L")
+    } else if t.contains("outpost") {
+        Some("M")
+    } else {
+        None
+    }
+}
+
 pub async fn ingest_commodity(db: &Db, msg: &CommodityMsg) -> Result<usize> {
     let is_fc = msg
         .station_type
@@ -108,32 +121,46 @@ pub async fn ingest_commodity(db: &Db, msg: &CommodityMsg) -> Result<usize> {
             l.contains("carrier") || l == "fleetcarrier"
         })
         .unwrap_or(false);
+    let pad = msg
+        .station_type
+        .as_deref()
+        .and_then(pad_from_station_type);
 
     match db {
         Db::Sqlite(p) => {
             sqlx::query(
-                "INSERT INTO stations (station_id, system_name, station_name, station_type, is_fleet_carrier, last_seen_at) VALUES (?, ?, ?, ?, ?, ?) \
-                 ON CONFLICT(station_id) DO UPDATE SET last_seen_at = excluded.last_seen_at, station_type = COALESCE(stations.station_type, excluded.station_type)",
+                "INSERT INTO stations (station_id, system_name, station_name, station_type, is_fleet_carrier, pad_size, last_seen_at) VALUES (?, ?, ?, ?, ?, ?, ?) \
+                 ON CONFLICT(station_id) DO UPDATE SET \
+                   last_seen_at = excluded.last_seen_at, \
+                   station_type = COALESCE(excluded.station_type, stations.station_type), \
+                   is_fleet_carrier = CASE WHEN excluded.is_fleet_carrier = 1 THEN 1 ELSE stations.is_fleet_carrier END, \
+                   pad_size = COALESCE(excluded.pad_size, stations.pad_size)",
             )
             .bind(msg.market_id)
             .bind(&msg.system_name)
             .bind(&msg.station_name)
             .bind(msg.station_type.as_deref())
             .bind(is_fc as i32)
+            .bind(pad)
             .bind(msg.gateway_timestamp.to_rfc3339())
             .execute(p)
             .await?;
         }
         Db::Postgres(p) => {
             sqlx::query(
-                "INSERT INTO stations (station_id, system_name, station_name, station_type, is_fleet_carrier, last_seen_at) VALUES ($1, $2, $3, $4, $5, $6) \
-                 ON CONFLICT(station_id) DO UPDATE SET last_seen_at = EXCLUDED.last_seen_at, station_type = COALESCE(stations.station_type, EXCLUDED.station_type)",
+                "INSERT INTO stations (station_id, system_name, station_name, station_type, is_fleet_carrier, pad_size, last_seen_at) VALUES ($1, $2, $3, $4, $5, $6, $7) \
+                 ON CONFLICT(station_id) DO UPDATE SET \
+                   last_seen_at = EXCLUDED.last_seen_at, \
+                   station_type = COALESCE(EXCLUDED.station_type, stations.station_type), \
+                   is_fleet_carrier = stations.is_fleet_carrier OR EXCLUDED.is_fleet_carrier, \
+                   pad_size = COALESCE(EXCLUDED.pad_size, stations.pad_size)",
             )
             .bind(msg.market_id)
             .bind(&msg.system_name)
             .bind(&msg.station_name)
             .bind(msg.station_type.as_deref())
             .bind(is_fc)
+            .bind(pad)
             .bind(msg.gateway_timestamp)
             .execute(p)
             .await?;

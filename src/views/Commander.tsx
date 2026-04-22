@@ -3,13 +3,6 @@ import { api } from "../api/tauri";
 import { useStore } from "../store";
 import type { ShipSpec } from "../types";
 
-const DEFAULT_OVERRIDE: ShipSpec = {
-  ship_type: "custom",
-  cargo_capacity: 0,
-  jump_range_ly: 0,
-  pad_size_max: "L",
-};
-
 export default function Commander() {
   const userState = useStore((s) => s.userState);
   const refreshUserState = useStore((s) => s.refreshUserState);
@@ -20,8 +13,15 @@ export default function Commander() {
     return () => clearInterval(id);
   }, [refreshUserState]);
 
+  const seed: ShipSpec = {
+    ship_type: userState?.ship_type ?? "custom",
+    cargo_capacity: userState?.cargo_capacity ?? 0,
+    jump_range_ly: userState?.jump_range_ly ?? 0,
+    pad_size_max: userState?.pad_size_max ?? "L",
+  };
+
   function updateOverride(patch: Partial<ShipSpec>) {
-    const base = override ?? DEFAULT_OVERRIDE;
+    const base = override ?? seed;
     useStore.setState({ commanderOverride: { ...base, ...patch } });
   }
 
@@ -30,7 +30,11 @@ export default function Commander() {
     useStore.setState({ commanderOverride: ship });
   }
 
-  const current = override ?? DEFAULT_OVERRIDE;
+  const current = override ?? seed;
+  const canApply =
+    !!override &&
+    current.cargo_capacity > 0 &&
+    current.jump_range_ly > 0;
 
   return (
     <div className="p-6 grid gap-6">
@@ -106,7 +110,12 @@ export default function Commander() {
             type="button"
             className="px-3 py-1 border border-[var(--color-accent)] text-[var(--color-accent)] text-sm disabled:opacity-50"
             onClick={() => applyOverride(override)}
-            disabled={!override}
+            disabled={!canApply}
+            title={
+              !canApply
+                ? "Enter a cargo capacity and jump range above 0 first"
+                : "Apply override"
+            }
           >
             Apply
           </button>
