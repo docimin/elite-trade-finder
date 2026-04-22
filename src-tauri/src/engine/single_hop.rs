@@ -32,6 +32,7 @@ pub async fn find(
     user_id: &str,
     weights: &ScoreWeights,
     limit: i32,
+    override_ship: Option<&crate::types::ShipSpec>,
 ) -> Result<Vec<RankedRoute>> {
     let row: Option<(Option<String>, Option<i32>, Option<f64>, Option<String>)> = match db {
         Db::Sqlite(p) => sqlx::query_as(
@@ -51,10 +52,24 @@ pub async fn find(
         tracing::debug!("single_hop: user_state row missing (journal hasn't persisted yet)");
         return Ok(vec![]);
     };
-    let (Some(user_system), Some(cargo), Some(jump_range), Some(pad)) =
-        (user_system, cargo, jump_range, pad)
-    else {
-        tracing::debug!("single_hop: user_state fields partially empty — waiting for Loadout/Location");
+    // Override wins when present. Otherwise fall back to journal-derived
+    // values with "S" pad as the permissive default.
+    let (cargo, jump_range, pad) = if let Some(os) = override_ship {
+        (os.cargo_capacity, os.jump_range_ly, os.pad_size_max.clone())
+    } else {
+        let pad = pad.unwrap_or_else(|| "S".into());
+        match (cargo, jump_range) {
+            (Some(c), Some(j)) => (c, j, pad),
+            _ => {
+                tracing::debug!(
+                    "single_hop: user_state missing cargo/jump-range — waiting for Loadout"
+                );
+                return Ok(vec![]);
+            }
+        }
+    };
+    let Some(user_system) = user_system else {
+        tracing::debug!("single_hop: user_state missing current_system — waiting for Location");
         return Ok(vec![]);
     };
     tracing::debug!(

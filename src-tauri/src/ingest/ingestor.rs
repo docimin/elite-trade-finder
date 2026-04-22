@@ -11,6 +11,33 @@ use tokio::sync::mpsc;
 
 static SYNTHETIC_ID_CURSOR: Lazy<AtomicI64> = Lazy::new(|| AtomicI64::new(900_000_000));
 
+/// Seed the synthetic commodity_id cursor from the current DB max so we don't
+/// re-issue IDs already assigned in a prior session and collide with the PK.
+/// Call once on bootstrap after migrations + seed.
+pub async fn init_synthetic_cursor(db: &Db) -> Result<()> {
+    let max: i64 = match db {
+        Db::Sqlite(p) => {
+            sqlx::query_scalar::<_, Option<i64>>(
+                "SELECT MAX(commodity_id) FROM commodities",
+            )
+            .fetch_one(p)
+            .await?
+            .unwrap_or(0)
+        }
+        Db::Postgres(p) => sqlx::query_scalar::<_, Option<i32>>(
+            "SELECT MAX(commodity_id) FROM commodities",
+        )
+        .fetch_one(p)
+        .await?
+        .map(|n| n as i64)
+        .unwrap_or(0),
+    };
+    let start = max.max(900_000_000) + 1;
+    SYNTHETIC_ID_CURSOR.store(start, Ordering::SeqCst);
+    tracing::info!(synthetic_cursor_start = start, "seeded synthetic commodity_id cursor");
+    Ok(())
+}
+
 async fn resolve_commodity_id(db: &Db, symbol: &str) -> Result<i64> {
     match db {
         Db::Sqlite(p) => {
@@ -27,12 +54,19 @@ async fn resolve_commodity_id(db: &Db, symbol: &str) -> Result<i64> {
             sqlx::query("INSERT OR IGNORE INTO commodities (commodity_id, symbol, display_name) VALUES (?, ?, ?)")
                 .bind(new_id).bind(symbol).bind(symbol)
                 .execute(p).await?;
-            Ok(sqlx::query_scalar::<_, i64>(
+            match sqlx::query_scalar::<_, i64>(
                 "SELECT commodity_id FROM commodities WHERE symbol = ?",
             )
             .bind(symbol)
-            .fetch_one(p)
-            .await?)
+            .fetch_optional(p)
+            .await?
+            {
+                Some(id) => Ok(id),
+                None => anyhow::bail!(
+                    "failed to resolve commodity_id for symbol '{}' after insert",
+                    symbol
+                ),
+            }
         }
         Db::Postgres(p) => {
             if let Some(id) = sqlx::query_scalar::<_, i32>(
@@ -48,12 +82,19 @@ async fn resolve_commodity_id(db: &Db, symbol: &str) -> Result<i64> {
             sqlx::query("INSERT INTO commodities (commodity_id, symbol, display_name) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING")
                 .bind(new_id).bind(symbol).bind(symbol)
                 .execute(p).await?;
-            Ok(sqlx::query_scalar::<_, i32>(
+            match sqlx::query_scalar::<_, i32>(
                 "SELECT commodity_id FROM commodities WHERE symbol = $1",
             )
             .bind(symbol)
-            .fetch_one(p)
-            .await? as i64)
+            .fetch_optional(p)
+            .await?
+            {
+                Some(id) => Ok(id as i64),
+                None => anyhow::bail!(
+                    "failed to resolve commodity_id for symbol '{}' after insert",
+                    symbol
+                ),
+            }
         }
     }
 }

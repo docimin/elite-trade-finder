@@ -47,7 +47,7 @@ fn fsd_jump_updates_system_and_clears_station() {
 }
 
 #[test]
-fn docked_sets_station_and_pad() {
+fn docked_sets_station_but_not_pad() {
     let mut s = blank_state();
     journal::apply_event(
         &mut s,
@@ -60,7 +60,44 @@ fn docked_sets_station_and_pad() {
         },
     );
     assert_eq!(s.current_station.as_deref(), Some("Abraham Lincoln"));
+    // Pad comes from the ship, not the station.
+    assert!(s.pad_size_max.is_none());
+}
+
+#[test]
+fn loadout_sets_pad_from_ship_type() {
+    let mut s = blank_state();
+    journal::apply_event(
+        &mut s,
+        &JournalEvent::Loadout {
+            ship: "corsair".into(),
+            cargo_capacity: 128,
+            max_jump_range: 35.0,
+        },
+    );
+    assert_eq!(s.pad_size_max.as_deref(), Some("M"));
+
+    let mut s = blank_state();
+    journal::apply_event(
+        &mut s,
+        &JournalEvent::Loadout {
+            ship: "cutter".into(),
+            cargo_capacity: 720,
+            max_jump_range: 20.0,
+        },
+    );
     assert_eq!(s.pad_size_max.as_deref(), Some("L"));
+
+    let mut s = blank_state();
+    journal::apply_event(
+        &mut s,
+        &JournalEvent::Loadout {
+            ship: "sidewinder".into(),
+            cargo_capacity: 4,
+            max_jump_range: 8.0,
+        },
+    );
+    assert_eq!(s.pad_size_max.as_deref(), Some("S"));
 }
 
 #[test]

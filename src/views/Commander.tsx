@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { api } from "../api/tauri";
 import { useStore } from "../store";
 import type { ShipSpec } from "../types";
@@ -13,16 +13,21 @@ const DEFAULT_OVERRIDE: ShipSpec = {
 export default function Commander() {
   const userState = useStore((s) => s.userState);
   const refreshUserState = useStore((s) => s.refreshUserState);
-  const [override, setOverride] = useState<ShipSpec | null>(null);
+  const override = useStore((s) => s.commanderOverride);
 
   useEffect(() => {
     const id = setInterval(refreshUserState, 5000);
     return () => clearInterval(id);
   }, [refreshUserState]);
 
+  function updateOverride(patch: Partial<ShipSpec>) {
+    const base = override ?? DEFAULT_OVERRIDE;
+    useStore.setState({ commanderOverride: { ...base, ...patch } });
+  }
+
   async function applyOverride(ship: ShipSpec | null) {
     await api.manualOverrideShip(ship);
-    setOverride(ship);
+    useStore.setState({ commanderOverride: ship });
   }
 
   const current = override ?? DEFAULT_OVERRIDE;
@@ -64,9 +69,7 @@ export default function Commander() {
           <input
             className="bg-[var(--color-panel)] border border-[var(--color-border)] px-2 py-1"
             value={current.ship_type}
-            onChange={(e) =>
-              setOverride({ ...current, ship_type: e.target.value })
-            }
+            onChange={(e) => updateOverride({ ship_type: e.target.value })}
           />
           <label className="text-[var(--color-text-dim)]">Cargo cap</label>
           <input
@@ -74,10 +77,7 @@ export default function Commander() {
             className="bg-[var(--color-panel)] border border-[var(--color-border)] px-2 py-1"
             value={current.cargo_capacity}
             onChange={(e) =>
-              setOverride({
-                ...current,
-                cargo_capacity: Number(e.target.value),
-              })
+              updateOverride({ cargo_capacity: Number(e.target.value) })
             }
           />
           <label className="text-[var(--color-text-dim)]">Jump range (ly)</label>
@@ -87,19 +87,14 @@ export default function Commander() {
             className="bg-[var(--color-panel)] border border-[var(--color-border)] px-2 py-1"
             value={current.jump_range_ly}
             onChange={(e) =>
-              setOverride({
-                ...current,
-                jump_range_ly: Number(e.target.value),
-              })
+              updateOverride({ jump_range_ly: Number(e.target.value) })
             }
           />
           <label className="text-[var(--color-text-dim)]">Max pad</label>
           <select
             className="bg-[var(--color-panel)] border border-[var(--color-border)] px-2 py-1"
             value={current.pad_size_max}
-            onChange={(e) =>
-              setOverride({ ...current, pad_size_max: e.target.value })
-            }
+            onChange={(e) => updateOverride({ pad_size_max: e.target.value })}
           >
             <option>S</option>
             <option>M</option>
@@ -108,13 +103,15 @@ export default function Commander() {
         </div>
         <div className="flex gap-3 mt-3">
           <button
-            className="px-3 py-1 border border-[var(--color-accent)] text-[var(--color-accent)] text-sm"
+            type="button"
+            className="px-3 py-1 border border-[var(--color-accent)] text-[var(--color-accent)] text-sm disabled:opacity-50"
             onClick={() => applyOverride(override)}
             disabled={!override}
           >
             Apply
           </button>
           <button
+            type="button"
             className="px-3 py-1 border border-[var(--color-border)] text-sm"
             onClick={() => applyOverride(null)}
           >

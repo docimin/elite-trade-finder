@@ -7,11 +7,13 @@ use tauri::AppHandle;
 pub async fn recompute_all(app: &AppHandle, state: &AppState) {
     let weights = state.settings.read().await.score_weights.clone();
     let user_id = state.user_id.as_str();
+    let ovr_guard = state.override_ship.read().await;
+    let ovr = ovr_guard.as_ref();
 
-    let singles_r = single_hop::find(&state.db, user_id, &weights, 200).await;
-    let loops2_r = loops::find_two_leg(&state.db, user_id, &weights, 200).await;
-    let loops_multi_r = loops::find_multi_leg(&state.db, user_id, &weights, 4, 200).await;
-    let rares_r = rare_chains::find(&state.db, user_id, &weights, 50).await;
+    let singles_r = single_hop::find(&state.db, user_id, &weights, 200, ovr).await;
+    let loops2_r = loops::find_two_leg(&state.db, user_id, &weights, 200, ovr).await;
+    let loops_multi_r = loops::find_multi_leg(&state.db, user_id, &weights, 4, 200, ovr).await;
+    let rares_r = rare_chains::find(&state.db, user_id, &weights, 50, ovr).await;
 
     // If every query errored (e.g. DB connection blip), keep the previous
     // top_routes visible rather than wiping the UI to "No routes yet".

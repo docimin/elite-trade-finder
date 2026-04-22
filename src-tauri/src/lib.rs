@@ -128,6 +128,15 @@ async fn bootstrap(app: &tauri::AppHandle) -> anyhow::Result<()> {
     if let Err(e) = db::cleanup::fix_fleet_carrier_flags(&dbh).await {
         tracing::warn!(error = %format!("{:#}", e), "fix_fleet_carrier_flags failed");
     }
+    if let Err(e) = db::cleanup::infer_pad_sizes_from_type(&dbh).await {
+        tracing::warn!(error = %format!("{:#}", e), "infer_pad_sizes_from_type failed");
+    }
+    if let Err(e) = ingest::ingestor::init_synthetic_cursor(&dbh).await {
+        tracing::warn!(error = %format!("{:#}", e), "init_synthetic_cursor failed");
+    }
+    if let Err(e) = db::cleanup::infer_pad_sizes_from_type(&dbh).await {
+        tracing::warn!(error = %format!("{:#}", e), "infer_pad_sizes_from_type failed");
+    }
 
     let state = AppState::new(dbh.clone(), user_id.clone());
     let loaded = settings_store::load(&dbh, &user_id).await.unwrap_or(cfg_settings);

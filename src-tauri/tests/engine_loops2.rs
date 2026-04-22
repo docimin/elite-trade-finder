@@ -30,7 +30,7 @@ async fn finds_two_leg_loop() {
 
     elite_trade_finder_lib::ingest::ingestor::rebuild_latest_market(&conn).await.unwrap();
 
-    let routes = loops::find_two_leg(&conn, "test", &ScoreWeights::default(), 10)
+    let routes = loops::find_two_leg(&conn, "test", &ScoreWeights::default(), 10, None)
         .await
         .unwrap();
     assert!(!routes.is_empty());

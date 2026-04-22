@@ -35,7 +35,7 @@ async fn finds_three_leg_cycle() {
 
     elite_trade_finder_lib::ingest::ingestor::rebuild_latest_market(&conn).await.unwrap();
 
-    let routes = loops::find_multi_leg(&conn, "test", &ScoreWeights::default(), 3, 5)
+    let routes = loops::find_multi_leg(&conn, "test", &ScoreWeights::default(), 3, 5, None)
         .await
         .unwrap();
     let three_leg = routes.iter().find(|r| matches!(r.mode, RouteMode::Loop3));

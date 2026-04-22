@@ -6,6 +6,7 @@ import type {
   Settings,
   Diagnostics,
   FirehoseTick,
+  ShipSpec,
   SpanshProgress,
 } from "../types";
 
@@ -41,6 +42,7 @@ type AppStore = {
   spanshProgress: SpanshProgress | null;
   spanshBusy: boolean;
   routeFilter: RouteFilterState;
+  commanderOverride: ShipSpec | null;
 
   refreshSettings: () => Promise<void>;
   refreshUserState: () => Promise<void>;
@@ -61,6 +63,7 @@ export const useStore = create<AppStore>((set, get) => ({
   spanshProgress: null,
   spanshBusy: false,
   routeFilter: { ...DEFAULT_ROUTE_FILTER },
+  commanderOverride: null,
 
   refreshSettings: async () => set({ settings: await api.getSettings() }),
   refreshUserState: async () => set({ userState: await api.getUserState() }),

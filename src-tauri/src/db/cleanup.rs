@@ -1,6 +1,46 @@
 use super::Db;
 use anyhow::Result;
 
+/// Back-fill `pad_size` for stations whose type we know but whose pad wasn't
+/// recorded (e.g. rows imported before pad-inference landed). Cheap — one
+/// indexed UPDATE with a CASE expression.
+pub async fn infer_pad_sizes_from_type(db: &Db) -> Result<u64> {
+    let updated = match db {
+        Db::Sqlite(p) => sqlx::query(
+            "UPDATE stations SET pad_size = CASE \
+               WHEN LOWER(station_type) LIKE '%carrier%' THEN 'L' \
+               WHEN LOWER(station_type) LIKE '%starport%' THEN 'L' \
+               WHEN LOWER(station_type) LIKE '%asteroid base%' THEN 'L' \
+               WHEN LOWER(station_type) LIKE '%mega ship%' THEN 'L' \
+               WHEN LOWER(station_type) LIKE '%planetary port%' THEN 'L' \
+               WHEN LOWER(station_type) LIKE '%planetary outpost%' THEN 'M' \
+               WHEN LOWER(station_type) LIKE '%outpost%' THEN 'M' \
+               ELSE pad_size \
+             END \
+             WHERE pad_size IS NULL AND station_type IS NOT NULL",
+        )
+        .execute(p).await?.rows_affected(),
+        Db::Postgres(p) => sqlx::query(
+            "UPDATE stations SET pad_size = CASE \
+               WHEN LOWER(station_type) LIKE '%carrier%' THEN 'L' \
+               WHEN LOWER(station_type) LIKE '%starport%' THEN 'L' \
+               WHEN LOWER(station_type) LIKE '%asteroid base%' THEN 'L' \
+               WHEN LOWER(station_type) LIKE '%mega ship%' THEN 'L' \
+               WHEN LOWER(station_type) LIKE '%planetary port%' THEN 'L' \
+               WHEN LOWER(station_type) LIKE '%planetary outpost%' THEN 'M' \
+               WHEN LOWER(station_type) LIKE '%outpost%' THEN 'M' \
+               ELSE pad_size \
+             END \
+             WHERE pad_size IS NULL AND station_type IS NOT NULL",
+        )
+        .execute(p).await?.rows_affected(),
+    };
+    if updated > 0 {
+        tracing::info!(updated, "back-filled pad_size from station_type");
+    }
+    Ok(updated)
+}
+
 /// Back-fill `is_fleet_carrier` on stations imported before the
 /// "Drake-Class Carrier" detection was added. Cheap — one indexed UPDATE.
 pub async fn fix_fleet_carrier_flags(db: &Db) -> Result<u64> {

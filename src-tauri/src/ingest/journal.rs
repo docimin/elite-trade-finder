@@ -231,6 +231,28 @@ pub fn default_journal_dir() -> PathBuf {
     PathBuf::from(".")
 }
 
+/// Maps the FDev internal ship name from the Loadout event to the pad size
+/// the ship requires (smallest pad it fits on). This is what the route engine
+/// uses to filter out stations that are too small for the current ship.
+fn ship_required_pad(ship: &str) -> Option<String> {
+    match ship.to_lowercase().as_str() {
+        // Small pad
+        "sidewinder" | "eagle" | "hauler" | "adder" | "empire_courier" | "empire_eagle"
+        | "viper" | "viper_mkiv" | "cobramkiii" | "cobramkiv" | "cobra_mk_v"
+        | "diamondback" | "dolphin" | "vulture" => Some("S".into()),
+        // Medium pad
+        "asp_scout" | "asp" | "diamondbackxl" | "federation_dropship"
+        | "federation_dropship_mkii" | "federation_gunship" | "ferdelance"
+        | "krait_mkii" | "krait_light" | "mamba" | "python" | "python_nx"
+        | "type6" | "type7" | "typex" | "typex_2" | "typex_3"
+        | "independant_trader" | "corsair" => Some("M".into()),
+        // Large pad
+        "anaconda" | "belugaliner" | "cutter" | "federation_corvette"
+        | "type9" | "type9_military" | "orca" | "empire_trader" => Some("L".into()),
+        _ => None,
+    }
+}
+
 pub fn apply_event(s: &mut UserState, ev: &JournalEvent) {
     match ev {
         JournalEvent::LoadGame { credits } => {
@@ -244,6 +266,10 @@ pub fn apply_event(s: &mut UserState, ev: &JournalEvent) {
             s.ship_type = Some(ship.clone());
             s.cargo_capacity = Some(*cargo_capacity);
             s.jump_range_ly = Some(*max_jump_range);
+            // Pad is a property of the SHIP, not the last station.
+            if let Some(pad) = ship_required_pad(ship) {
+                s.pad_size_max = Some(pad);
+            }
         }
         JournalEvent::Location {
             star_system,
@@ -260,14 +286,11 @@ pub fn apply_event(s: &mut UserState, ev: &JournalEvent) {
         JournalEvent::Docked {
             star_system,
             station_name,
-            max_pad_size,
             ..
         } => {
             s.current_system = Some(star_system.clone());
             s.current_station = Some(station_name.clone());
-            if let Some(p) = max_pad_size {
-                s.pad_size_max = Some(p.clone());
-            }
+            // Deliberately do NOT set pad_size_max from the station
         }
         JournalEvent::Undocked => {
             s.current_station = None;

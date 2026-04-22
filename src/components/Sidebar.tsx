@@ -1,4 +1,5 @@
 import clsx from "clsx";
+import pkg from "../../package.json";
 
 export type View = "routes" | "firehose" | "commander" | "settings";
 
@@ -22,7 +23,10 @@ export default function Sidebar({
         <div className="text-[var(--color-accent)] font-semibold tracking-wide">
           Elite Trade Finder
         </div>
-        <div className="text-xs text-[var(--color-text-dim)]">v0.1 dev</div>
+        <div className="text-xs text-[var(--color-text-dim)]">
+          v{pkg.version}
+          {import.meta.env.DEV ? " dev" : ""}
+        </div>
       </div>
       <ul className="flex-1 py-2">
         {ITEMS.map((it) => (

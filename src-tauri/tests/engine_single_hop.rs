@@ -30,7 +30,7 @@ async fn finds_single_hop_tritium_route() {
 
     elite_trade_finder_lib::ingest::ingestor::rebuild_latest_market(&conn).await.unwrap();
 
-    let routes = single_hop::find(&conn, "test", &ScoreWeights::default(), 10).await.unwrap();
+    let routes = single_hop::find(&conn, "test", &ScoreWeights::default(), 10, None).await.unwrap();
     assert!(!routes.is_empty(), "expected at least one single-hop route");
     let r = &routes[0];
     assert_eq!(r.legs.len(), 1);

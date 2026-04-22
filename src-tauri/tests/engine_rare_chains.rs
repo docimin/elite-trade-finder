@@ -33,7 +33,7 @@ async fn builds_rare_tour_to_distant_hub() {
 
     elite_trade_finder_lib::ingest::ingestor::rebuild_latest_market(&conn).await.unwrap();
 
-    let routes = rare_chains::find(&conn, "test", &ScoreWeights::default(), 10)
+    let routes = rare_chains::find(&conn, "test", &ScoreWeights::default(), 10, None)
         .await
         .unwrap();
     assert!(!routes.is_empty(), "expected at least one rare chain");

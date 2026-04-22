@@ -54,7 +54,8 @@ pub async fn reachable_stations(
     let Some((system, jump_range, pad)) = row else {
         return Ok(vec![]);
     };
-    let (Some(system), Some(jr), Some(pad)) = (system, jump_range, pad) else {
+    let pad = pad.unwrap_or_else(|| "S".into());
+    let (Some(system), Some(jr)) = (system, jump_range) else {
         return Ok(vec![]);
     };
     let min_rank = pad_rank(&pad);

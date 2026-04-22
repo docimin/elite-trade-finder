@@ -51,11 +51,43 @@ pub async fn get_settings(state: State<'_, AppState>) -> Result<Settings, String
 #[tauri::command]
 pub async fn set_settings(
     new_settings: Settings,
+    app: tauri::AppHandle,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
     settings_store::save(&state.db, &state.user_id, &new_settings)
         .await
         .map_err(|e| e.to_string())?;
+
+    // bootstrap() reads `database_url` from the LOCAL SQLite file so the user
+    // can flip backends. If we only wrote to the current (Postgres) backend,
+    // clicking "Use SQLite" would persist `null` to Postgres but leave the old
+    // URL in SQLite — on next boot we'd dutifully reconnect to Postgres.
+    // Mirror the full settings row to the local SQLite whenever the current
+    // backend isn't SQLite, so it stays the canonical source for bootstrap.
+    if !matches!(&state.db, crate::db::Db::Sqlite(_)) {
+        let app_data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+        let sqlite_url = crate::db::default_sqlite_url(&app_data_dir);
+        match crate::db::connect(&sqlite_url).await {
+            Ok(local_db) => {
+                let _ = crate::db::migrations::run(&local_db).await;
+                if let Err(e) =
+                    settings_store::save(&local_db, &state.user_id, &new_settings).await
+                {
+                    tracing::warn!(
+                        error = %format!("{:#}", e),
+                        "failed to mirror settings to local SQLite; backend switch may not persist"
+                    );
+                }
+            }
+            Err(e) => {
+                tracing::warn!(
+                    error = %format!("{:#}", e),
+                    "failed to open local SQLite for settings mirror"
+                );
+            }
+        }
+    }
+
     *state.settings.write().await = new_settings;
     Ok(())
 }
@@ -181,9 +213,11 @@ pub async fn debug_route_pipeline(state: State<'_, AppState>) -> Result<String, 
     report.push_str(&format!("raw_profitable_pairs: {}\n", raw_pairs));
 
     let weights = state.settings.read().await.score_weights.clone();
+    let ovr_guard = state.override_ship.read().await;
+    let ovr = ovr_guard.as_ref();
 
     // Single-hop
-    let singles = crate::engine::single_hop::find(db, user_id, &weights, 10)
+    let singles = crate::engine::single_hop::find(db, user_id, &weights, 10, ovr)
         .await
         .map_err(|e| format!("single_hop error: {:#}", e))?;
     report.push_str(&format!("single_hop: {} routes\n", singles.len()));
@@ -202,7 +236,7 @@ pub async fn debug_route_pipeline(state: State<'_, AppState>) -> Result<String, 
     let pair_count: i64 = {
         use std::collections::HashSet;
         let mut set: HashSet<(String, String)> = HashSet::new();
-        let wide = crate::engine::single_hop::find(db, user_id, &weights, 1000)
+        let wide = crate::engine::single_hop::find(db, user_id, &weights, 1000, ovr)
             .await
             .unwrap_or_default();
         for h in &wide {
@@ -214,7 +248,7 @@ pub async fn debug_route_pipeline(state: State<'_, AppState>) -> Result<String, 
     report.push_str(&format!("distinct from→to pairs in hops: {}\n", pair_count));
 
     // 2-leg loops
-    match crate::engine::loops::find_two_leg(db, user_id, &weights, 10).await {
+    match crate::engine::loops::find_two_leg(db, user_id, &weights, 10, ovr).await {
         Ok(v) => {
             report.push_str(&format!("loops_two_leg: {} routes\n", v.len()));
             if let Some(r) = v.first() {
@@ -234,7 +268,7 @@ pub async fn debug_route_pipeline(state: State<'_, AppState>) -> Result<String, 
     }
 
     // 3-4 leg loops
-    match crate::engine::loops::find_multi_leg(db, user_id, &weights, 4, 10).await {
+    match crate::engine::loops::find_multi_leg(db, user_id, &weights, 4, 10, ovr).await {
         Ok(v) => {
             report.push_str(&format!("loops_multi_leg: {} routes\n", v.len()));
             if v.is_empty() {
@@ -284,7 +318,7 @@ pub async fn debug_route_pipeline(state: State<'_, AppState>) -> Result<String, 
     };
     report.push_str(&format!("rare_commodities_in_feed: {}\n", rare_with_data));
 
-    match crate::engine::rare_chains::find(db, user_id, &weights, 10).await {
+    match crate::engine::rare_chains::find(db, user_id, &weights, 10, ovr).await {
         Ok(v) => report.push_str(&format!("rare_chains: {} routes\n", v.len())),
         Err(e) => report.push_str(&format!("rare_chains error: {:#}\n", e)),
     }

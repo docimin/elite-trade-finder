@@ -10,10 +10,11 @@ pub async fn find_two_leg(
     user_id: &str,
     weights: &ScoreWeights,
     limit: i32,
+    override_ship: Option<&crate::types::ShipSpec>,
 ) -> Result<Vec<RankedRoute>> {
     // Fetch a wide pool of single-hops. Loops need BOTH A→B and B→A present,
     // so small pools miss most reverse pairs. latest_market makes this cheap.
-    let hops = single_hop::find(db, user_id, weights, 5000).await?;
+    let hops = single_hop::find(db, user_id, weights, 5000, override_ship).await?;
     let mut by_pair: HashMap<(String, String), Vec<RankedRoute>> = HashMap::new();
     for hop in hops {
         let leg = &hop.legs[0];
@@ -106,9 +107,10 @@ pub async fn find_multi_leg(
     weights: &ScoreWeights,
     max_legs: i32,
     limit: i32,
+    override_ship: Option<&crate::types::ShipSpec>,
 ) -> Result<Vec<RankedRoute>> {
     assert!(max_legs <= 4, "max_legs capped at 4 per spec");
-    let hops = single_hop::find(db, user_id, weights, 5000).await?;
+    let hops = single_hop::find(db, user_id, weights, 5000, override_ship).await?;
 
     let mut adj: HashMap<String, Vec<RouteLeg>> = HashMap::new();
     for hop in &hops {

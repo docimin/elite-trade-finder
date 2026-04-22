@@ -36,6 +36,7 @@ pub async fn find(
     user_id: &str,
     weights: &ScoreWeights,
     limit: i32,
+    override_ship: Option<&crate::types::ShipSpec>,
 ) -> Result<Vec<RankedRoute>> {
     let row: Option<(Option<String>, Option<i32>, Option<f64>)> = match db {
         Db::Sqlite(p) => sqlx::query_as(
@@ -54,8 +55,15 @@ pub async fn find(
     let Some((user_system, cargo, jump_range)) = row else {
         return Ok(vec![]);
     };
-    let (Some(user_system), Some(cargo), Some(jump_range)) = (user_system, cargo, jump_range)
-    else {
+    let (cargo, jump_range) = if let Some(os) = override_ship {
+        (os.cargo_capacity, os.jump_range_ly)
+    } else {
+        match (cargo, jump_range) {
+            (Some(c), Some(j)) => (c, j),
+            _ => return Ok(vec![]),
+        }
+    };
+    let Some(user_system) = user_system else {
         return Ok(vec![]);
     };
     let tour_radius = jump_range * 15.0;
