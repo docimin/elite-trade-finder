@@ -160,36 +160,82 @@ async fn run_once(
     state.eddn_status.write().await.connected = true;
     tracing::info!(relay_url, "eddn subscriber connected");
 
-    let mut msgs_last_sec: u32 = 0;
-    let mut last_metric = tokio::time::Instant::now();
+    // Rolling 10-second window: cheap, smooth, and doesn't lie with 0 during
+    // quiet seconds when the feed is otherwise healthy.
+    const WINDOW_SECS: usize = 10;
+    let commodity_counter = std::sync::Arc::new(std::sync::atomic::AtomicU32::new(0));
+    let activity_counter = std::sync::Arc::new(std::sync::atomic::AtomicU32::new(0));
 
-    loop {
-        let msg = socket.recv().await?;
-        let frame = match msg.iter().next() {
-            Some(f) => f.to_vec(),
-            None => continue,
-        };
-        let json = match decompress(&frame) {
-            Ok(s) => s,
-            Err(e) => {
-                tracing::debug!(error = %e, "zlib fail");
-                continue;
+    // Metric ticker: every second, slide the window forward, publish rate.
+    let state_for_ticker = state.clone();
+    let cc_for_ticker = commodity_counter.clone();
+    let ac_for_ticker = activity_counter.clone();
+    let ticker = tokio::spawn(async move {
+        use std::sync::atomic::Ordering;
+        let mut commodity_window: std::collections::VecDeque<u32> =
+            std::collections::VecDeque::from(vec![0; WINDOW_SECS]);
+        let mut activity_window: std::collections::VecDeque<u32> =
+            std::collections::VecDeque::from(vec![0; WINDOW_SECS]);
+        let mut interval = tokio::time::interval(Duration::from_secs(1));
+        interval.tick().await;
+        loop {
+            interval.tick().await;
+            let commodity_this_sec = cc_for_ticker.swap(0, Ordering::SeqCst);
+            let activity_this_sec = ac_for_ticker.swap(0, Ordering::SeqCst);
+            commodity_window.push_back(commodity_this_sec);
+            activity_window.push_back(activity_this_sec);
+            if commodity_window.len() > WINDOW_SECS {
+                commodity_window.pop_front();
             }
-        };
-        match decode_json(&json) {
-            Ok(Eddn::CommodityV3(m)) => {
-                msgs_last_sec += 1;
-                let _ = out.send(m).await;
+            if activity_window.len() > WINDOW_SECS {
+                activity_window.pop_front();
             }
-            Ok(Eddn::Ignored) => {}
-            Err(e) => tracing::debug!(error = %e, "decode fail"),
+            let commodity_per_sec =
+                commodity_window.iter().copied().sum::<u32>() as f64 / WINDOW_SECS as f64;
+            let activity_per_sec =
+                activity_window.iter().copied().sum::<u32>() as f64 / WINDOW_SECS as f64;
+            let mut st = state_for_ticker.eddn_status.write().await;
+            // Show the non-zero of the two: commodity rate is what matters for
+            // route data, but during market-quiet moments we fall back to the
+            // total activity rate so "0.0" doesn't scare the user.
+            st.msgs_per_sec = if commodity_per_sec > 0.0 {
+                commodity_per_sec
+            } else {
+                activity_per_sec
+            };
         }
-        if last_metric.elapsed() >= Duration::from_secs(1) {
-            let mut st = state.eddn_status.write().await;
-            st.msgs_per_sec = msgs_last_sec as f64;
-            st.last_msg_at = Some(chrono::Utc::now());
-            msgs_last_sec = 0;
-            last_metric = tokio::time::Instant::now();
+    });
+
+    // Main receive loop: counts go into atomics; the ticker reads them.
+    let result: Result<()> = async {
+        use std::sync::atomic::Ordering;
+        loop {
+            let msg = socket.recv().await?;
+            activity_counter.fetch_add(1, Ordering::SeqCst);
+            let frame = match msg.iter().next() {
+                Some(f) => f.to_vec(),
+                None => continue,
+            };
+            let json = match decompress(&frame) {
+                Ok(s) => s,
+                Err(e) => {
+                    tracing::debug!(error = %e, "zlib fail");
+                    continue;
+                }
+            };
+            match decode_json(&json) {
+                Ok(Eddn::CommodityV3(m)) => {
+                    commodity_counter.fetch_add(1, Ordering::SeqCst);
+                    state.eddn_status.write().await.last_msg_at = Some(chrono::Utc::now());
+                    let _ = out.send(m).await;
+                }
+                Ok(Eddn::Ignored) => {}
+                Err(e) => tracing::debug!(error = %e, "decode fail"),
+            }
         }
     }
+    .await;
+
+    ticker.abort();
+    result
 }
